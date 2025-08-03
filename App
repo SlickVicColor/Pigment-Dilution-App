@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pigment Dilution Calculator</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: auto; padding: 2rem; }
+    input, select, button { padding: 0.5rem; margin: 0.5rem 0; width: 100%; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .result { background: #f0f0f0; padding: 1rem; border-radius: 5px; margin-top: 1rem; }
+    .pathway { margin: 0.5rem 0; padding: 0.5rem; background: #eef; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Our S.P.A.C.E. Studios | Pigment Dilution Calculator</h1>
+
+  <label for="desiredLevel"><strong>Select Desired Level:</strong></label>
+  <select id="desiredLevel" onchange="generatePathways()">
+    <option value="10">Level 10</option>
+    <option value="9">Level 9</option>
+    <option value="8">Level 8</option>
+    <option value="7" selected>Level 7</option>
+    <option value="6">Level 6</option>
+    <option value="5">Level 5</option>
+    <option value="4">Level 4</option>
+    <option value="3">Level 3</option>
+    <option value="2">Level 2</option>
+    <option value="1">Level 1</option>
+  </select>
+
+  <label for="totalGrams"><strong>Total Formula Quantity (grams):</strong></label>
+  <input type="number" id="totalGrams" value="60" step="1" onchange="updateUnitsFromParts()">
+
+  <div class="grid">
+    <div>
+      <label for="f1Level">Formula 1 Level:</label>
+      <select id="f1Level" onchange="updateUnitsFromParts()">
+        <option value="10">Level 10</option>
+        <option value="9">Level 9</option>
+        <option value="8">Level 8</option>
+        <option value="7" selected>Level 7</option>
+        <option value="6">Level 6</option>
+        <option value="5">Level 5</option>
+        <option value="4">Level 4</option>
+        <option value="3">Level 3</option>
+        <option value="2">Level 2</option>
+        <option value="1">Level 1</option>
+      </select>
+      <label for="f1Parts">Formula 1 Parts:</label>
+      <input type="number" id="f1Parts" value="2" min="1" onchange="updateUnitsFromParts()">
+      <div>Formula 1 Units: <span id="f1UnitsDisplay">-</span>g</div>
+    </div>
+    <div>
+      <label for="f2Level">Formula 2 Level:</label>
+      <select id="f2Level" onchange="updateUnitsFromParts()">
+        <option value="10">Level 10</option>
+        <option value="9">Level 9</option>
+        <option value="8">Level 8</option>
+        <option value="7">Level 7</option>
+        <option value="6">Level 6</option>
+        <option value="5" selected>Level 5</option>
+        <option value="4">Level 4</option>
+        <option value="3">Level 3</option>
+        <option value="2">Level 2</option>
+        <option value="1">Level 1</option>
+      </select>
+      <label for="f2Parts">Formula 2 Parts:</label>
+      <input type="number" id="f2Parts" value="3" min="1" onchange="updateUnitsFromParts()">
+      <div>Formula 2 Units: <span id="f2UnitsDisplay">-</span>g</div>
+    </div>
+  </div>
+
+  <button onclick="calculateLevel()">Calculate Achieved Level</button>
+  <div id="achievedResult" class="result"></div>
+
+  <div id="pathways" class="result"></div>
+
+  <script>
+    const pigmentWeights = {
+      10: 4, 9: 8, 8: 10, 7: 15, 6: 25,
+      5: 40, 4: 75, 3: 100, 2: 125, 1: 150
+    };
+
+    let f1Units = 0;
+    let f2Units = 0;
+
+    function updateUnitsFromParts() {
+      const grams = parseFloat(document.getElementById('totalGrams').value);
+      const f1Parts = parseFloat(document.getElementById('f1Parts').value);
+      const f2Parts = parseFloat(document.getElementById('f2Parts').value);
+      const totalParts = f1Parts + f2Parts;
+
+      f1Units = grams * (f1Parts / totalParts);
+      f2Units = grams * (f2Parts / totalParts);
+
+      document.getElementById('f1UnitsDisplay').innerText = f1Units.toFixed(2);
+      document.getElementById('f2UnitsDisplay').innerText = f2Units.toFixed(2);
+    }
+
+    function calculateLevel() {
+      const f1Level = parseFloat(document.getElementById('f1Level').value);
+      const f2Level = parseFloat(document.getElementById('f2Level').value);
+
+      const totalUnits = f1Units + f2Units;
+      const sumTotal = (f1Level * f1Units) + (f2Level * f2Units);
+      const achievedLevel = (sumTotal / totalUnits).toFixed(2);
+
+      document.getElementById('achievedResult').innerHTML =
+        `<strong>Achieved Level:</strong> ${achievedLevel}<br>
+         <strong>Equation:</strong> (${f1Level} × ${f1Units.toFixed(2)}) + (${f2Level} × ${f2Units.toFixed(2)}) = ${sumTotal.toFixed(2)} ÷ ${totalUnits.toFixed(2)}`;
+    }
+
+    function generatePathways() {
+      const desired = parseFloat(document.getElementById('desiredLevel').value);
+      const container = document.getElementById('pathways');
+      container.innerHTML = '<h3>Suggested Pathways:</h3>';
+      let found = false;
+
+      for (let i = 1; i <= 10; i++) {
+        for (let j = 1; j <= 10; j++) {
+          const u1 = pigmentWeights[i];
+          const u2 = pigmentWeights[j];
+          const result = (i * u1 + j * u2) / (u1 + u2);
+          if (Math.abs(result - desired) < 0.1) {
+            const div = document.createElement('div');
+            div.className = 'pathway';
+            div.textContent = `Formula 1: Level ${i} (${u1} units), Formula 2: Level ${j} (${u2} units) → Level ${result.toFixed(2)}`;
+            container.appendChild(div);
+            found = true;
+          }
+        }
+      }
+      if (!found) container.innerHTML += '<p>No matching pathways found.</p>';
+    }
+
+    window.onload = () => {
+      updateUnitsFromParts();
+      generatePathways();
+    }
+  </script>
+</body>
+</html>
