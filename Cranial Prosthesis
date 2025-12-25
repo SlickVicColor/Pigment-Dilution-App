@@ -1,0 +1,577 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Heart, 
+  ShieldCheck, 
+  Microscope, 
+  Calendar, 
+  ExternalLink, 
+  Menu, 
+  X, 
+  ChevronRight, 
+  Award, 
+  Users, 
+  CheckCircle2,
+  FileText,
+  Clock,
+  MapPin,
+  Phone,
+  Mail,
+  Zap,
+  Info,
+  Sparkles,
+  Send,
+  Loader2,
+  MessageSquare
+} from 'lucide-react';
+
+const App = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('home');
+  const [scrolled, setScrolled] = useState(false);
+
+  // Gemini API State
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiResponse, setAiResponse] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [currentAiMode, setCurrentAiMode] = useState('ritual'); // 'ritual', 'texture', 'medical'
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Gemini API Logic
+  const callGemini = async (prompt) => {
+    const apiKey = ""; // Provided at runtime
+    const model = "gemini-2.5-flash-preview-09-2025";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const systemInstructions = {
+      ritual: "You are the AI Assistant for Our S.P.A.C.E. Studios, a sanctuary for medical hair restoration. Your tone is deeply affirming, clinical yet soulful, inspired by the legacy of Donna Jean. Create a personalized self-care and scalp-health ritual. Focus on the phrase 'deeply seen, immensely loved, and securely held'. Keep responses under 250 words.",
+      texture: "Help the user identify their natural hair texture (Types 2, 3, 4) and suggest how to match it with medical-grade prosthetics. Be empathetic about hair loss identity.",
+      medical: "Explain the clinical codes like A9282 (Cranial Prosthesis) or ICD-10 codes for hair loss. Help the user draft a polite note to their insurance provider for reimbursement support."
+    };
+
+    setIsAiLoading(true);
+    setAiError('');
+
+    const payload = {
+      contents: [{ parts: [{ text: prompt }] }],
+      systemInstruction: { parts: [{ text: systemInstructions[currentAiMode] }] }
+    };
+
+    const fetchWithRetry = async (attempt = 0) => {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error('API request failed');
+        
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text;
+      } catch (error) {
+        if (attempt < 4) {
+          const delay = Math.pow(2, attempt) * 1000;
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return fetchWithRetry(attempt + 1);
+        }
+        throw error;
+      }
+    };
+
+    try {
+      const result = await fetchWithRetry();
+      setAiResponse(result);
+    } catch (error) {
+      setAiError('Our sanctuary is experiencing a quiet moment. Please try again or book a personal consultation.');
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  // Shared UI Components
+  const SectionHeading = ({ children, subtitle, light = false, align = "center" }) => (
+    <div className={`mb-16 ${align === "center" ? "text-center" : "text-left"} ${light ? 'text-white' : 'text-slate-900'}`}>
+      <h2 className="text-3xl md:text-5xl font-serif mb-4 italic leading-tight">{children}</h2>
+      <div className={`w-20 h-1 bg-amber-600 mb-4 ${align === "center" ? "mx-auto" : ""}`}></div>
+      {subtitle && <p className={`max-w-2xl font-light text-lg italic ${align === "center" ? "mx-auto text-slate-500" : "text-slate-600"}`}>{subtitle}</p>}
+    </div>
+  );
+
+  const Button = ({ children, primary = true, className = "", onClick, disabled = false }) => (
+    <button 
+      disabled={disabled}
+      onClick={onClick}
+      className={`px-8 py-4 rounded-none uppercase tracking-widest text-sm transition-all duration-300 transform hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed ${
+        primary 
+          ? "bg-slate-900 text-white hover:bg-slate-800 shadow-lg" 
+          : "border border-slate-900 text-slate-900 hover:bg-slate-50"
+      } ${className}`}
+    >
+      {children}
+    </button>
+  );
+
+  const RestorationAssistant = () => (
+    <div className="animate-in fade-in duration-700 py-32 px-4 bg-amber-50/30">
+      <div className="max-w-4xl mx-auto">
+        <SectionHeading subtitle="Experience a moment of AI-guided care designed to help you navigate your restoration journey.">
+          ✨ Restoration Assistant
+        </SectionHeading>
+
+        <div className="bg-white border border-slate-100 shadow-2xl overflow-hidden">
+          <div className="flex border-b border-slate-100">
+            {['ritual', 'texture', 'medical'].map((mode) => (
+              <button 
+                key={mode}
+                onClick={() => { setCurrentAiMode(mode); setAiResponse(''); setAiPrompt(''); }}
+                className={`flex-1 py-4 text-[10px] uppercase tracking-widest font-bold transition-all ${currentAiMode === mode ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}
+              >
+                {mode === 'ritual' ? '✨ Ritual Designer' : mode === 'texture' ? '✨ Texture Match' : '✨ Medical Guide'}
+              </button>
+            ))}
+          </div>
+
+          <div className="p-8 md:p-12">
+            {!aiResponse && !isAiLoading && (
+              <div className="text-center space-y-6">
+                <MessageSquare className="w-12 h-12 text-amber-200 mx-auto" />
+                <h3 className="text-2xl font-serif italic text-slate-900">
+                  {currentAiMode === 'ritual' && "Tell us about your current journey stage."}
+                  {currentAiMode === 'texture' && "Describe your natural hair texture."}
+                  {currentAiMode === 'medical' && "What clinical terms or codes can we clarify?"}
+                </h3>
+                <p className="text-slate-500 font-light italic max-w-md mx-auto">
+                  {currentAiMode === 'ritual' && "e.g., 'I am starting chemotherapy next week and need a gentle routine.'"}
+                  {currentAiMode === 'texture' && "e.g., 'My natural hair is thick with tight, small coils.'"}
+                  {currentAiMode === 'medical' && "e.g., 'Help me understand CPT A9282 and how to ask for a prescription.'"}
+                </p>
+                <div className="relative max-w-lg mx-auto mt-8">
+                  <textarea 
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    placeholder="Share your thoughts here..."
+                    className="w-full bg-slate-50 border-0 p-6 italic font-light text-slate-600 focus:ring-2 focus:ring-amber-200 resize-none h-32"
+                  />
+                  <button 
+                    onClick={() => callGemini(aiPrompt)}
+                    disabled={!aiPrompt}
+                    className="absolute bottom-4 right-4 bg-slate-900 text-white p-3 rounded-full hover:bg-amber-700 transition-colors disabled:opacity-30"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {isAiLoading && (
+              <div className="py-20 text-center space-y-6 flex flex-col items-center animate-pulse">
+                <Loader2 className="w-12 h-12 text-amber-600 animate-spin" />
+                <p className="font-serif italic text-slate-400">Deeply seeing you... Please wait a moment.</p>
+              </div>
+            )}
+
+            {aiResponse && !isAiLoading && (
+              <div className="animate-in slide-in-from-bottom duration-500">
+                <div className="prose prose-slate prose-lg max-w-none font-light italic text-slate-600 leading-relaxed bg-slate-50 p-10 border-l-4 border-amber-600">
+                  <p className="whitespace-pre-line">{aiResponse}</p>
+                </div>
+                <div className="mt-8 flex justify-center gap-4">
+                  <Button primary={false} onClick={() => setAiResponse('')}>Ask Another Question</Button>
+                  <Button onClick={() => setActiveTab('services')}>Book In-Person Consultation</Button>
+                </div>
+              </div>
+            )}
+
+            {aiError && (
+              <div className="text-center p-8 bg-red-50 text-red-700 font-serif italic border border-red-100">
+                {aiError}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const HomePage = () => (
+    <div className="animate-in fade-in duration-700">
+      {/* Hero Section */}
+      <section className="relative h-[95vh] flex items-center justify-center overflow-hidden bg-slate-100">
+        <div className="absolute inset-0 opacity-25 bg-[url('https://images.unsplash.com/photo-1594132176008-0919df495333?q=80&w=2070')] bg-cover bg-center"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-white/60"></div>
+        
+        <div className="relative z-10 text-center px-4 max-w-5xl">
+          <span className="uppercase tracking-[.4em] text-sm text-amber-800 mb-6 block font-bold animate-in slide-in-from-bottom duration-1000">Medical Hair Specialist | Arlington, VA</span>
+          <h1 className="text-5xl md:text-8xl font-serif text-slate-900 mb-8 italic leading-tight animate-in slide-in-from-bottom duration-1000 delay-100">
+            Cranial Prosthetics <br /> & Medical Restoration
+          </h1>
+          <p className="text-xl md:text-2xl text-slate-800 mb-10 font-light italic max-w-3xl mx-auto animate-in slide-in-from-bottom duration-1000 delay-200">
+            Bespoke hair systems engineered for oncology and alopecia patients. Rooted in the science of Trichology and the legacy of care.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-in slide-in-from-bottom duration-1000 delay-300">
+            <Button onClick={() => setActiveTab('services')}>Request Consultation</Button>
+            <Button primary={false} onClick={() => setActiveTab('assistant')}>✨ AI Restoration Guide</Button>
+          </div>
+        </div>
+      </section>
+
+      {/* AI Teaser Section */}
+      <section className="py-20 bg-amber-50/50 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <Sparkles className="w-10 h-10 text-amber-600 mx-auto mb-6" />
+          <h2 className="text-3xl font-serif italic mb-4">Meet your ✨ Restoration Assistant</h2>
+          <p className="text-slate-600 font-light italic mb-8 max-w-xl mx-auto leading-relaxed">
+            Need immediate guidance on scalp rituals or texture matching? Our Gemini-powered assistant is here to hold space for you before your appointment.
+          </p>
+          <Button primary={false} onClick={() => setActiveTab('assistant')}>Try the Assistant</Button>
+        </div>
+      </section>
+
+      {/* Philosophy Section */}
+      <section className="py-28 bg-white px-4 border-b border-slate-100">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-20 items-center">
+            <div className="relative">
+              <div className="aspect-[4/5] bg-slate-200 shadow-2xl overflow-hidden relative group">
+                <img 
+                  src="https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=2070" 
+                  alt="Victor Scotti Jr, Arlington VA Medical Hair Specialist" 
+                  className="w-full h-full object-cover grayscale brightness-90 group-hover:grayscale-0 group-hover:brightness-100 transition-all duration-1000"
+                />
+                <div className="absolute inset-0 border-[20px] border-white/20 pointer-events-none"></div>
+              </div>
+              <div className="absolute -bottom-10 -left-10 w-64 h-64 border-8 border-white bg-amber-50 p-8 flex items-center justify-center text-center shadow-2xl">
+                <div>
+                  <Heart className="w-8 h-8 text-amber-700 mx-auto mb-4" />
+                  <p className="font-serif italic text-amber-900 text-base leading-relaxed">
+                    "Deeply seen, immensely loved, securely held."
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div>
+              <span className="text-amber-800 font-bold uppercase tracking-widest text-xs mb-4 block">The Donna Jean Legacy</span>
+              <h2 className="text-4xl md:text-5xl font-serif text-slate-900 mb-8 italic leading-tight">Beyond a Salon. <br />A Sanctuary for Healing.</h2>
+              <p className="text-slate-600 mb-6 text-lg leading-relaxed font-light">
+                Our S.P.A.C.E. Studios was born from my mother’s 8-year battle with Multiple Myeloma. I saw the profound gap between clinical care and the dignity of a salon ritual.
+              </p>
+              <p className="text-slate-600 mb-8 text-lg leading-relaxed font-light italic border-l-2 border-amber-600 pl-6 py-2">
+                I don’t just offer hair; I create the container where you can reclaim your identity during treatment, recovery, and transition.
+              </p>
+              <Button primary={false} onClick={() => setActiveTab('about')}>Our Restoration Story</Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Differentiation Section */}
+      <section className="py-28 bg-slate-50 px-4">
+        <div className="max-w-6xl mx-auto text-center">
+          <SectionHeading subtitle="Why Arlington patients and physicians choose Our S.P.A.C.E. Studios over traditional retail wig boutiques.">
+            The Specialist Difference
+          </SectionHeading>
+          
+          <div className="grid md:grid-cols-2 gap-8 text-left">
+            <div className="bg-white p-12 shadow-sm border border-slate-200">
+              <Award className="w-10 h-10 text-amber-700 mb-6" />
+              <h3 className="text-2xl font-serif italic mb-6">Expertise vs. Retail</h3>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-4 text-slate-600 font-light">
+                  <div className="h-2 w-2 bg-amber-600 mt-2 shrink-0"></div>
+                  <span><strong>Licensed Educator:</strong> Unlike retail clerks, I am a licensed cosmetology educator capable of complex chemical and structural modifications.</span>
+                </li>
+                <li className="flex items-start gap-4 text-slate-600 font-light">
+                  <div className="h-2 w-2 bg-amber-600 mt-2 shrink-0"></div>
+                  <span><strong>Trichology-Informed:</strong> Studies with the IAT allow me to assess scalp integrity and prepare follicles for post-treatment regrowth.</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="bg-white p-12 shadow-sm border border-slate-200">
+              <ShieldCheck className="w-10 h-10 text-amber-700 mb-6" />
+              <h3 className="text-2xl font-serif italic mb-6">Prosthesis vs. Wig</h3>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-4 text-slate-600 font-light">
+                  <div className="h-2 w-2 bg-amber-600 mt-2 shrink-0"></div>
+                  <span><strong>Medical Foundations:</strong> We utilize hypoallergenic silicone, monofilament, and silk linings designed specifically for chemo-sensitive scalps.</span>
+                </li>
+                <li className="flex items-start gap-4 text-slate-600 font-light">
+                  <div className="h-2 w-2 bg-amber-600 mt-2 shrink-0"></div>
+                  <span><strong>Master Color Blending:</strong> We apply custom root-smudging and shadow-roots to eliminate the "flat" look of factory-made units.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+
+  const ServicesPage = () => (
+    <div className="animate-in fade-in duration-700 py-32 px-4 bg-white">
+      <div className="max-w-6xl mx-auto">
+        <SectionHeading subtitle="Professional restoration paths engineered for clinical results and personal dignity.">
+          Specialized Services
+        </SectionHeading>
+
+        <div className="grid md:grid-cols-3 gap-10 mb-24">
+          {[
+            {
+              title: "Clinical Consultation",
+              price: "$200 - $300",
+              category: "Trichology & Mapping",
+              desc: "A private, 75-minute assessment including scalp mapping, cranial measurements, and insurance coding guidance.",
+              icon: <FileText className="w-7 h-7 text-amber-700" />
+            },
+            {
+              title: "Cranial Prosthesis Design",
+              price: "$2,800+",
+              category: "Medical-Grade Systems",
+              desc: "Custom-constructed medical hair systems featuring silk tops, silicone grips, and hand-ventilated hairlines.",
+              icon: <Zap className="w-7 h-7 text-amber-700" />
+            },
+            {
+              title: "Scalp Restoration",
+              price: "Membership",
+              category: "Post-Treatment Care",
+              desc: "Maintenance sessions focused on scalp hygiene, follicle stimulation, and unit longevity during regrowth.",
+              icon: <Clock className="w-7 h-7 text-amber-700" />
+            }
+          ].map((s, idx) => (
+            <div key={idx} className="group p-10 border border-slate-100 bg-slate-50 hover:bg-white hover:shadow-2xl hover:-translate-y-2 transition-all duration-500">
+              <div className="mb-8">{s.icon}</div>
+              <span className="text-[10px] uppercase tracking-[.3em] font-bold text-amber-700 mb-2 block">{s.category}</span>
+              <h3 className="text-2xl font-serif italic mb-4 text-slate-900 leading-tight">{s.title}</h3>
+              <div className="text-slate-800 font-serif italic mb-6">{s.price}</div>
+              <p className="text-slate-500 font-light leading-relaxed text-sm mb-10">{s.desc}</p>
+              <button className="text-slate-900 flex items-center gap-3 text-xs uppercase tracking-widest font-bold border-b border-transparent hover:border-slate-900 pb-1 transition-all">
+                Request Appointment <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Insurance Detail SEO Block */}
+        <div className="max-w-4xl mx-auto bg-slate-900 text-white p-16 relative overflow-hidden">
+          <Info className="absolute -top-10 -right-10 w-40 h-40 text-white/5" />
+          <div className="relative z-10 text-center md:text-left">
+            <h3 className="text-3xl font-serif italic mb-6">Navigating Insurance Reimbursement</h3>
+            <p className="text-slate-400 font-light mb-8 leading-relaxed">
+              Most medical hair systems are considered <strong>Durable Medical Equipment (DME)</strong>. We provide all patients with an official <strong>Superbill</strong> including CPT code <strong>A9282</strong> and our NPI credentials to facilitate out-of-network reimbursement.
+            </p>
+            <Button primary={false} className="border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-white">Insurance FAQ Guide</Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const MedicalPage = () => (
+    <div className="animate-in fade-in duration-700 py-32 px-4">
+      <div className="max-w-5xl mx-auto">
+        <SectionHeading align="left" subtitle="A bridge between dermatology and restorative cosmetology.">
+          Physician & Provider Referrals
+        </SectionHeading>
+
+        <div className="grid md:grid-cols-5 gap-16">
+          <div className="md:col-span-3">
+            <h3 className="text-2xl font-serif italic mb-6">Our Medical Protocol</h3>
+            <p className="text-slate-600 font-light mb-8 leading-relaxed">
+              We serve as a specialized extension of oncology and dermatology teams in the Arlington area. Our studio is optimized for immunocompromised patients, offering a sanitized, private, 1:1 environment.
+            </p>
+            
+            <div className="space-y-6 mb-12">
+              {[
+                { label: "NAICS Code", value: "339113 (Medical Supplies)" },
+                { label: "Taxonomy", value: "Prosthetic/Orthotic Supplier" },
+                { label: "Status", value: "Minority-Owned Small Business" }
+              ].map((info, i) => (
+                <div key={i} className="flex justify-between border-b border-slate-100 pb-2">
+                  <span className="text-xs uppercase tracking-widest font-bold text-slate-400">{info.label}</span>
+                  <span className="text-sm font-serif italic text-slate-800">{info.value}</span>
+                </div>
+              ))}
+            </div>
+
+            <Button primary={true}>Download Capability Statement</Button>
+          </div>
+          
+          <div className="md:col-span-2 bg-amber-50 p-10">
+            <h4 className="text-lg font-serif italic mb-6 text-amber-900">VA & Federal Partners</h4>
+            <p className="text-xs text-amber-800 mb-6 font-light leading-relaxed">
+              We are registered for federal procurement through SAM.gov and ready to fulfill VA contracts for Cranial Prosthesis fitting and supply.
+            </p>
+            <ul className="space-y-4 text-sm text-slate-700 font-light">
+              <li className="flex gap-3"><CheckCircle2 className="w-4 h-4 text-amber-700 shrink-0" /> UEI Registered</li>
+              <li className="flex gap-3"><CheckCircle2 className="w-4 h-4 text-amber-700 shrink-0" /> CAGE Code Assigned</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const AboutPage = () => (
+    <div className="animate-in fade-in duration-700 py-32 px-4 max-w-4xl mx-auto">
+      <SectionHeading align="left" subtitle="Victor Scotti, Jr. | Licensed Educator & Specialist">
+        The Journey of Restoration
+      </SectionHeading>
+      <div className="prose prose-slate prose-lg max-w-none font-light italic text-slate-600 leading-relaxed">
+        <p className="mb-10 text-xl text-slate-900 font-medium">
+          I watched my mother, Donna Jean, transition from a vibrant salon client to a patient navigating Multiple Myeloma. That transition shouldn't cost a person their dignity.
+        </p>
+        <p className="mb-8">
+          My career as a Licensed Cosmetology Educator and Specialist is now dedicated to creating <strong>containers of care</strong>.
+        </p>
+        <div className="bg-slate-50 p-12 my-16 text-center border-l-8 border-amber-600 shadow-sm">
+          <p className="text-3xl font-serif italic text-slate-900 mb-0 leading-tight">
+            "We restore more than hair; we restore the ritual of being seen."
+          </p>
+        </div>
+        <div className="grid md:grid-cols-2 gap-12 mt-20 not-prose">
+          <div className="group">
+            <h4 className="text-sm uppercase tracking-widest font-bold text-amber-700 mb-2">The Provider</h4>
+            <p className="text-slate-900 font-serif italic text-lg mb-4">Victor Scotti, Jr.</p>
+            <p className="text-slate-500 text-sm leading-relaxed">A specialist driven by empathy and credentialed by the highest standards in cosmetology education and prosthetic science.</p>
+          </div>
+          <div className="bg-slate-900 text-white p-10">
+            <h4 className="text-xs uppercase tracking-[.3em] font-bold text-amber-500 mb-6">Professional Stack</h4>
+            <ul className="text-sm text-slate-300 space-y-4">
+              <li className="flex items-center gap-3"><Award className="w-4 h-4" /> Licensed Educator</li>
+              <li className="flex items-center gap-3"><ShieldCheck className="w-4 h-4" /> Certified Prosthesis Specialist</li>
+              <li className="flex items-center gap-3"><Microscope className="w-4 h-4" /> IAT Trichology Student</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const Footer = () => (
+    <footer className="bg-slate-50 pt-32 pb-16 px-4 border-t border-slate-200">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid md:grid-cols-4 gap-20 mb-20">
+          <div className="col-span-1 md:col-span-1">
+            <h2 className="text-3xl font-serif italic mb-6">Our S.P.A.C.E.</h2>
+            <p className="text-slate-500 text-sm font-light leading-relaxed mb-6 italic">
+              "Restoring identity for oncology and alopecia patients through clinical science and artisan hair design."
+            </p>
+            <div className="flex gap-6">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-amber-700 cursor-pointer">IG</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-amber-700 cursor-pointer">LI</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-amber-700 cursor-pointer">FB</span>
+            </div>
+          </div>
+          <div>
+            <h3 className="uppercase tracking-widest text-xs font-bold mb-8 text-slate-900">Navigation</h3>
+            <ul className="space-y-5 text-sm text-slate-500 font-light">
+              <li className="hover:text-amber-700 cursor-pointer transition-colors" onClick={() => setActiveTab('home')}>The Sanctuary</li>
+              <li className="hover:text-amber-700 cursor-pointer transition-colors" onClick={() => setActiveTab('about')}>The Donna Jean Legacy</li>
+              <li className="hover:text-amber-700 cursor-pointer transition-colors" onClick={() => setActiveTab('assistant')}>✨ Restoration Assistant</li>
+              <li className="hover:text-amber-700 cursor-pointer transition-colors" onClick={() => setActiveTab('medical')}>For Professionals</li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="uppercase tracking-widest text-xs font-bold mb-8 text-slate-900">Locations</h3>
+            <ul className="space-y-5 text-sm text-slate-500 font-light italic">
+              <li className="flex items-start gap-4"><MapPin className="w-4 h-4 text-amber-700 shrink-0 mt-1" /> Arlington, Virginia <br /> ( DMV Metro Area )</li>
+              <li className="flex items-center gap-4"><Mail className="w-4 h-4 text-amber-700" /> victor@ourspacestudios.com</li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="uppercase tracking-widest text-xs font-bold mb-8 text-slate-900">SEO Focus</h3>
+            <ul className="space-y-3 text-[10px] text-slate-400 font-light uppercase tracking-widest leading-relaxed">
+              <li>• Cranial Prosthesis Arlington VA</li>
+              <li>• Medical Wig Specialist DC</li>
+              <li>• Oncology Hair Loss Northern Virginia</li>
+              <li>• 4C Medical Texture Specialist</li>
+            </ul>
+          </div>
+        </div>
+        <div className="border-t border-slate-200 pt-10 text-center text-[10px] text-slate-400 uppercase tracking-[.4em] font-medium italic">
+          &copy; {new Date().getFullYear()} Our S.P.A.C.E. Studios • Licensed Cosmetology Educator • NPI Provider 
+        </div>
+      </div>
+    </footer>
+  );
+
+  return (
+    <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-amber-100 selection:text-amber-900">
+      {/* Navigation */}
+      <nav className={`fixed top-0 w-full z-50 transition-all duration-700 ${scrolled ? 'bg-white/95 backdrop-blur-md shadow-lg py-5' : 'bg-transparent py-10'}`}>
+        <div className="max-w-7xl mx-auto px-8 flex justify-between items-center">
+          <div 
+            className="cursor-pointer group flex items-center gap-2"
+            onClick={() => setActiveTab('home')}
+          >
+            <h1 className="text-2xl font-serif italic tracking-tight group-hover:text-amber-900 transition-colors">
+              Our S.P.A.C.E. <span className="text-[10px] font-bold uppercase tracking-[.4em] ml-3 text-slate-400 group-hover:text-amber-700 transition-colors">Studios</span>
+            </h1>
+          </div>
+
+          {/* Desktop Nav */}
+          <div className="hidden lg:flex gap-12 items-center">
+            {['home', 'about', 'services', 'assistant', 'medical'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`uppercase tracking-widest text-[10px] font-bold transition-all relative after:content-[''] after:absolute after:bottom-[-8px] after:left-0 after:w-0 after:h-[1px] after:bg-amber-600 hover:after:w-full after:transition-all ${activeTab === tab ? 'text-amber-800 after:w-full' : 'text-slate-500 hover:text-slate-900'}`}
+              >
+                {tab === 'assistant' ? '✨ Assistant' : tab === 'medical' ? 'For Partners' : tab}
+              </button>
+            ))}
+            <button 
+              onClick={() => setActiveTab('services')}
+              className="bg-slate-900 text-white px-8 py-3 uppercase tracking-widest text-[10px] font-bold hover:bg-amber-800 transition-all shadow-xl active:scale-95"
+            >
+              Consultation
+            </button>
+          </div>
+
+          {/* Mobile Menu Toggle */}
+          <button className="lg:hidden text-slate-900 p-2" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+            {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
+          </button>
+        </div>
+      </nav>
+
+      {/* Mobile Menu Overlay */}
+      {isMenuOpen && (
+        <div className="fixed inset-0 bg-white z-[60] flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500">
+          <button className="absolute top-10 right-8 text-slate-900" onClick={() => setIsMenuOpen(false)}>
+            <X size={32} />
+          </button>
+          {['home', 'about', 'services', 'assistant', 'medical'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => { setActiveTab(tab); setIsMenuOpen(false); }}
+              className="text-5xl font-serif italic mb-10 capitalize tracking-tight hover:text-amber-700 transition-colors"
+            >
+              {tab === 'assistant' ? '✨ Assistant' : tab === 'medical' ? 'For Partners' : tab}
+            </button>
+          ))}
+          <Button className="mt-8" onClick={() => { setActiveTab('services'); setIsMenuOpen(false); }}>Book Consultation</Button>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <main className="pt-0">
+        {activeTab === 'home' && <HomePage />}
+        {activeTab === 'about' && <AboutPage />}
+        {activeTab === 'services' && <ServicesPage />}
+        {activeTab === 'assistant' && <RestorationAssistant />}
+        {activeTab === 'medical' && <MedicalPage />}
+      </main>
+
+      <Footer />
+    </div>
+  );
+};
+
+export default App;
